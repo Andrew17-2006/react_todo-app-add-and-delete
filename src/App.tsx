@@ -101,7 +101,10 @@ export const App: React.FC = () => {
     } finally {
       setTempTodo(null);
       setIsAdding(false);
-      inputRef.current?.focus();
+
+      setTimeout(() => {
+        inputRef.current?.focus();
+      });
     }
   }
 
@@ -112,6 +115,10 @@ export const App: React.FC = () => {
       .deleteTodo(id)
       .then(() => {
         setTodos(prev => prev.filter(todo => todo.id !== id));
+
+        setTimeout(() => {
+          inputRef.current?.focus();
+        });
       })
       .catch(() => {
         setError('Unable to delete a todo');
@@ -124,10 +131,10 @@ export const App: React.FC = () => {
   function handleClearCompleted() {
     const completedTodos = todos.filter(todo => todo.completed);
 
-    completedTodos.forEach(todo => {
+    const deletePromises = completedTodos.map(todo => {
       setProcessingIds(prev => [...prev, todo.id]);
 
-      doTodo
+      return doTodo
         .deleteTodo(todo.id)
         .then(() => {
           setTodos(prev => prev.filter(t => t.id !== todo.id));
@@ -138,6 +145,12 @@ export const App: React.FC = () => {
         .finally(() => {
           setProcessingIds(prev => prev.filter(id => id !== todo.id));
         });
+    });
+
+    Promise.all(deletePromises).then(() => {
+      setTimeout(() => {
+        inputRef.current?.focus();
+      });
     });
   }
 
@@ -222,7 +235,9 @@ export const App: React.FC = () => {
                   />
                 </label>
 
-                <span className="todo__title">{tempTodo.title}</span>
+                <span className="todo__title" data-cy="TodoTitle">
+                  {tempTodo.title}
+                </span>
 
                 <div data-cy="TodoLoader" className="modal overlay is-active">
                   <div className="modal-background has-background-white-ter" />
@@ -242,6 +257,7 @@ export const App: React.FC = () => {
             {/* Active link should have the 'selected' class */}
             <nav className="filter" data-cy="Filter">
               <a
+                data-cy="FilterLinkAll"
                 href="#/"
                 className={`filter__link ${filter === 'all' ? 'selected' : ''}`}
                 onClick={() => setFilter('all')}
@@ -250,6 +266,7 @@ export const App: React.FC = () => {
               </a>
 
               <a
+                data-cy="FilterLinkActive"
                 href="#/active"
                 className={`filter__link ${filter === 'active' ? 'selected' : ''}`}
                 onClick={() => setFilter('active')}
@@ -258,6 +275,7 @@ export const App: React.FC = () => {
               </a>
 
               <a
+                data-cy="FilterLinkCompleted"
                 href="#/completed"
                 className={`filter__link ${filter === 'completed' ? 'selected' : ''}`}
                 onClick={() => setFilter('completed')}
