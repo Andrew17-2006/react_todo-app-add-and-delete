@@ -2,17 +2,18 @@
 /* eslint-disable jsx-a11y/control-has-associated-label */
 /* eslint-disable jsx-a11y/label-has-associated-control */
 /* eslint-disable jsx-a11y/control-has-associated-label */
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { UserWarning } from './UserWarning';
 import { USER_ID } from './api/todos';
-import { useState } from 'react';
 import { Todo } from './types/Todo';
 import * as doTodo from './api/todos';
+import { Filter } from './types/Filter';
+import { ErrorMessage } from './types/ErrorMessage';
 
 export const App: React.FC = () => {
   const [todos, setTodos] = useState<Todo[]>([]);
   const [error, setError] = useState<string>('');
-  const [filter, setFilter] = useState<'all' | 'active' | 'completed'>('all');
+  const [filter, setFilter] = useState<Filter>(Filter.All);
 
   const [title, setTitle] = useState('');
   const [tempTodo, setTempTodo] = useState<Todo | null>(null);
@@ -25,17 +26,13 @@ export const App: React.FC = () => {
       const data = await doTodo.getTodos();
 
       setTodos(data);
-    } catch (err) {
-      setError('Unable to load todos');
+    } catch {
+      setError(ErrorMessage.LoadTodos);
     }
   };
 
-  //фокус при старт
   useEffect(() => {
     inputRef.current?.focus();
-  }, []);
-
-  useEffect(() => {
     loadtodos();
   }, []);
 
@@ -44,9 +41,7 @@ export const App: React.FC = () => {
       return;
     }
 
-    const timer = setTimeout(() => {
-      setError('');
-    }, 3000);
+    const timer = setTimeout(() => setError(''), 3000);
 
     return () => clearTimeout(timer);
   }, [error]);
@@ -57,9 +52,9 @@ export const App: React.FC = () => {
 
   const visibleTodos = todos.filter(todo => {
     switch (filter) {
-      case 'active':
+      case Filter.Active:
         return !todo.completed;
-      case 'completed':
+      case Filter.Completed:
         return todo.completed;
       default:
         return true;
@@ -71,11 +66,10 @@ export const App: React.FC = () => {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-
     const trimmedTitle = title.trim();
 
     if (!trimmedTitle) {
-      setError('Title should not be empty');
+      setError(ErrorMessage.EmptyTitle);
 
       return;
     }
@@ -97,14 +91,11 @@ export const App: React.FC = () => {
       setTodos(prev => [...prev, newTodo]);
       setTitle('');
     } catch {
-      setError('Unable to add a todo');
+      setError(ErrorMessage.AddTodo);
     } finally {
       setTempTodo(null);
       setIsAdding(false);
-
-      setTimeout(() => {
-        inputRef.current?.focus();
-      });
+      setTimeout(() => inputRef.current?.focus());
     }
   }
 
@@ -115,14 +106,9 @@ export const App: React.FC = () => {
       .deleteTodo(id)
       .then(() => {
         setTodos(prev => prev.filter(todo => todo.id !== id));
-
-        setTimeout(() => {
-          inputRef.current?.focus();
-        });
+        setTimeout(() => inputRef.current?.focus());
       })
-      .catch(() => {
-        setError('Unable to delete a todo');
-      })
+      .catch(() => setError(ErrorMessage.DeleteTodo))
       .finally(() => {
         setProcessingIds(prev => prev.filter(pid => pid !== id));
       });
@@ -139,18 +125,14 @@ export const App: React.FC = () => {
         .then(() => {
           setTodos(prev => prev.filter(t => t.id !== todo.id));
         })
-        .catch(() => {
-          setError('Unable to delete a todo');
-        })
+        .catch(() => setError(ErrorMessage.DeleteTodo))
         .finally(() => {
           setProcessingIds(prev => prev.filter(id => id !== todo.id));
         });
     });
 
     Promise.all(deletePromises).then(() => {
-      setTimeout(() => {
-        inputRef.current?.focus();
-      });
+      setTimeout(() => inputRef.current?.focus());
     });
   }
 
@@ -160,14 +142,12 @@ export const App: React.FC = () => {
 
       <div className="todoapp__content">
         <header className="todoapp__header">
-          {/* this button should have `active` class only if all todos are completed */}
           <button
             type="button"
             className={`todoapp__toggle-all ${allCompleted ? 'active' : ''}`}
             data-cy="ToggleAllButton"
           />
 
-          {/* Add a todo on form submit */}
           <form onSubmit={handleSubmit}>
             <input
               ref={inputRef}
@@ -176,7 +156,7 @@ export const App: React.FC = () => {
               className="todoapp__new-todo"
               placeholder="What needs to be done?"
               value={title}
-              onChange={event => setTitle(event.target.value)}
+              onChange={e => setTitle(e.target.value)}
               disabled={isAdding}
             />
           </form>
@@ -216,7 +196,9 @@ export const App: React.FC = () => {
 
                 <div
                   data-cy="TodoLoader"
-                  className={`modal overlay ${processingIds.includes(todo.id) ? 'is-active' : ''}`}
+                  className={`modal overlay ${
+                    processingIds.includes(todo.id) ? 'is-active' : ''
+                  }`}
                 >
                   <div className="modal-background has-background-white-ter" />
                   <div className="loader" />
@@ -228,14 +210,14 @@ export const App: React.FC = () => {
               <div data-cy="Todo" className="todo">
                 <label className="todo__status-label">
                   <input
+                    data-cy="TodoStatus"
                     type="checkbox"
                     className="todo__status"
-                    checked={false}
                     readOnly
                   />
                 </label>
 
-                <span className="todo__title" data-cy="TodoTitle">
+                <span data-cy="TodoTitle" className="todo__title">
                   {tempTodo.title}
                 </span>
 
@@ -254,13 +236,14 @@ export const App: React.FC = () => {
               {todos.filter(todo => !todo.completed).length} items left
             </span>
 
-            {/* Active link should have the 'selected' class */}
             <nav className="filter" data-cy="Filter">
               <a
                 data-cy="FilterLinkAll"
                 href="#/"
-                className={`filter__link ${filter === 'all' ? 'selected' : ''}`}
-                onClick={() => setFilter('all')}
+                className={`filter__link ${
+                  filter === Filter.All ? 'selected' : ''
+                }`}
+                onClick={() => setFilter(Filter.All)}
               >
                 All
               </a>
@@ -268,8 +251,10 @@ export const App: React.FC = () => {
               <a
                 data-cy="FilterLinkActive"
                 href="#/active"
-                className={`filter__link ${filter === 'active' ? 'selected' : ''}`}
-                onClick={() => setFilter('active')}
+                className={`filter__link ${
+                  filter === Filter.Active ? 'selected' : ''
+                }`}
+                onClick={() => setFilter(Filter.Active)}
               >
                 Active
               </a>
@@ -277,14 +262,15 @@ export const App: React.FC = () => {
               <a
                 data-cy="FilterLinkCompleted"
                 href="#/completed"
-                className={`filter__link ${filter === 'completed' ? 'selected' : ''}`}
-                onClick={() => setFilter('completed')}
+                className={`filter__link ${
+                  filter === Filter.Completed ? 'selected' : ''
+                }`}
+                onClick={() => setFilter(Filter.Completed)}
               >
                 Completed
               </a>
             </nav>
 
-            {/* this button should be disabled if there are no completed todos */}
             <button
               onClick={handleClearCompleted}
               type="button"
@@ -298,14 +284,18 @@ export const App: React.FC = () => {
         )}
       </div>
 
-      {/* DON'T use conditional rendering to hide the notification */}
-      {/* Add the 'hidden' class to hide the message smoothly */}
       <div
         data-cy="ErrorNotification"
-        className={`notification is-danger is-light has-text-weight-normal ${error ? '' : 'hidden'}`}
+        className={`notification is-danger is-light has-text-weight-normal ${
+          error ? '' : 'hidden'
+        }`}
       >
-        <button data-cy="HideErrorButton" type="button" className="delete" />
-        {/* show only one message at a time */}
+        <button
+          data-cy="HideErrorButton"
+          type="button"
+          className="delete"
+          onClick={() => setError('')}
+        />
         {error}
       </div>
     </div>
